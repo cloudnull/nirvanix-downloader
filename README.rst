@@ -14,11 +14,20 @@ This is a VERY Simple tool that will download files from your Nirvanix Account t
 
 The tool was created in haste as Nirvanix seems to no longer want to do business. As such this tool has been created to allow you, the end user to download your data onto some local system.
 
-Presently the tool is Serial, this means that the downloads could take a long time as they all have to be process ONE AT A TIME. However, soon I hope to have a multiprocessing downloader available.
-
 Additionally I am going to build this tool such that it will allow you to upload all your objects from Nrivanix to Rackspace Cloud Files.
 
 Stay tuned, check back regularly for updates.
+
+
+Overview
+--------
+
+1. The tool Authenticates against the Nirvanix API
+2. Stores a Session Token
+3. Builds a list of all files in all Containers with a max page view of 500
+4. As the tool Cycles through the list of Folders it builds a longer list of all files.
+5. Once the list of files is complete, The tool Builds the needed local directory structure.
+6. Using the power of multi-processing the tool beings to download objects.
 
 
 How to
