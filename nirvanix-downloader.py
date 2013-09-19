@@ -16,6 +16,7 @@
 import urlparse
 import urllib
 import httplib
+import multiprocessing
 import json
 import errno
 import os
@@ -185,13 +186,45 @@ for obj in files:
 for u_dir in unique_dirs:
     mkdir_p(u_dir)
 
+
+def threader(files):
+    queue = multiprocessing.Queue()
+    for file in files:
+        queue.put(file)
+
+    concurrency = 50
+    if len(files) < concurrency:
+        concurrency = len(files)
+
+    jobs = [multiprocessing.Process(target=downloader,
+                                    args=(queue,))
+            for _ in xrange(concurrency)]
+
+    join_jobs = []
+    for _job in jobs:
+        join_jobs.append(_job)
+        _job.Daemon = True
+        _job.start()
+
+    for job in join_jobs:
+        job.join()
+
+
 # Download Files
-for obj in files:
-    download_path = '%s/%s/%s' % (sessionToken,
-                                  ARGS['username'],
-                                  urllib.quote(obj))
-    dw_url = urlparse.urlsplit(urlparse.urljoin(base_url, download_path))
-    resp, read = connection(dw_url, dw_url.path, method='GET')
-    local_path = '/tmp/%s' % obj
-    with open(local_path, 'wb') as f:
-        f.write(read)
+def downloader(queue):
+    try:
+        obj = queue.get()
+    except Exception:
+        pass
+    else:
+        download_path = '%s/%s/%s' % (sessionToken,
+                                      ARGS['username'],
+                                      urllib.quote(obj))
+        dw_url = urlparse.urlsplit(urlparse.urljoin(base_url, download_path))
+        resp, read = connection(dw_url, dw_url.path, method='GET')
+        local_path = '/tmp/%s' % obj
+        with open(local_path, 'wb') as f:
+            f.write(read)
+
+# Begin Download
+threader(files=files)
