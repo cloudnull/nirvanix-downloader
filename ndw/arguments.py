@@ -70,7 +70,6 @@ def args():
                                     help='Download Files Locally')
     download.set_defaults(download=True)
 
-    # Turbolift Action
     turbgroup = subparser.add_parser(
         'to-rax',
         help='Stream Nirvanix files to Rackspace CloudFiles'

@@ -35,6 +35,7 @@ def open_connection(url):
         msg = 'ERROR: Making connection to %s\nREASON:\t %s' % (url, exc)
         raise httplib.CannotSendRequest(msg)
     else:
+        # conn.set_debuglevel(1)
         return conn
 
 
@@ -80,14 +81,11 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         conn = open_connection(storage_url)
         try:
             resp, read = request(conn, storage_path, method='GET')
+            json_read = json.loads(read)
             dw_url = urlparse.urlsplit(
-                json.loads(read).get('Download')[0].get('DownloadURL')
+                json_read.get('Download')[0].get('DownloadURL')
             )
             if resp.status >= 300:
-                print(
-                    'ERROR in Download Node API request. ERROR: %s\n%s'
-                    '\nSystem will retry' % (resp.status, resp.msg)
-                )
                 retry()
         except Exception as exp:
             print(
@@ -95,25 +93,42 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
                 'System will retry' % exp
             )
             retry()
-    for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-        conn = open_connection(dw_url)
-        try:
-            resp, read = request(conn, dw_url.path, method='GET')
-            if resp.status >= 300:
-                print(
-                    'ERROR in Processing Download. ERROR: %s\n%s'
-                    '\nSystem will retry' % (resp.status, resp.msg)
-                )
-                retry()
-            else:
-                with open(local_path, 'wb') as f:
-                    f.write(read)
-        except Exception as exp:
-            print(
-                'FAILURE in Downloading from Nirvanix\nERROR: %s,\n'
-                'System will retry' % exp
-            )
-            retry()
+        else:
+            time.sleep(.5)
+            for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+                conn = open_connection(dw_url)
+                resp, read = request(conn, dw_url.path, method='GET')
+                try:
+                    if resp.status >= 300:
+                        fpath = json_read.get('Download')[0].get('FilePath')
+                        dw_url = urlparse.urlsplit(
+                            urlparse.urljoin(
+                                args['node_url'], fpath
+                            )
+                        )
+                        conn = open_connection(dw_url)
+                        resp, read = request(conn, storage_path, method='GET')
+                        if resp.status >= 300:
+                            print(
+                                'ERROR in Download Node API request. '
+                                'ERROR: %s\n%s\nREQ: %s\nSystem will retry'
+                                % (resp.status, resp.msg, dw_url)
+                            )
+                            retry()
+                        else:
+                            with open(local_path, 'wb') as f:
+                                f.write(read)
+                            return True
+                    else:
+                        with open(local_path, 'wb') as f:
+                            f.write(read)
+                        return True
+                except Exception as exp:
+                    print(
+                        'FAILURE in Downloading from Nirvanix\nERROR: %s,\n'
+                        'System will retry' % exp
+                    )
+                    retry()
 
 
 # RAX Container Create
@@ -152,40 +167,38 @@ def container_create(payload):
 
 # Download Files
 def gotorax(sessionToken, args, obj, payload):
-    tempf = tempfile.mktemp()
     try:
         # make a temp download file.
         for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-            downloader(
-                sessionToken=sessionToken, args=args, obj=obj, tempf=tempf
-            )
-            if not os.path.exists(tempf):
-                retry()
+            tempf = tempfile.mktemp()
+            downloaded = downloader(sessionToken, args, obj, tempf)
+            if downloaded is True and os.path.exists(tempf):
+                # Upload file to RAX
+                for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+                    conn = open_connection(url=payload['url'])
+                    rpath = '%s/%s/%s' % (
+                        payload['url'].path, payload['c_name'], obj
+                    )
+                    rpath = urllib.quote(rpath)
+                    with open(tempf, 'rb') as fopen:
+                        resp, read = request(
+                            conn,
+                            rpath,
+                            method='PUT',
+                            body=fopen,
+                            headers=payload['headers']
+                        )
+                    if resp.status >= 300:
+                        retry()
+                        print(
+                            'ERROR in PUT object onto RAXProcessing.'
+                            ' ERROR: %s\n%s\nSystem will retry'
+                            % (resp.status, resp.msg)
+                        )
             else:
-                time.sleep(1)
-
-        # Upload file to RAX
-        for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-            conn = open_connection(url=payload['url'])
-            rpath = '%s/%s/%s' % (
-                payload['url'].path, payload['c_name'], obj
-            )
-            rpath = urllib.quote(rpath)
-            with open(tempf, 'rb') as fopen:
-                resp, read = request(
-                    conn,
-                    rpath,
-                    method='PUT',
-                    body=fopen,
-                    headers=payload['headers']
-                )
-            if resp.status >= 300:
+                if os.path.exists(tempf):
+                    os.remove(tempf)
                 retry()
-                print(
-                    'ERROR in PUT\'ing object onto RAXProcessing.'
-                    ' ERROR: %s\n%s\nSystem will retry'
-                    % (resp.status, resp.msg)
-                )
     finally:
         if os.path.exists(tempf):
             os.remove(tempf)

@@ -22,7 +22,6 @@ from ndw import rax_auth_utils
 
 
 def run():
-    """This is the run section of the application Turbolift."""
 
     def get_sesstoken(auth_url, auth_path):
         # Connection
