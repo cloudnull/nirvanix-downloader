@@ -48,5 +48,5 @@ setuptools.setup(
         'Topic :: Utilities',
         'Topic :: Software Development :: Libraries :: Python Modules'],
     entry_points={
-        "console_scripts": ["ntorax = ntorax.executable:run"]}
+        "console_scripts": ["ntorax = ndw.executable:run"]}
 )
