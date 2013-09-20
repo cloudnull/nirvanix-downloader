@@ -103,13 +103,17 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         % (sessionToken, file_path)
     )
     storage_path = '%s%s' % (storage_url.path, storage_query)
-    for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+    for retry in ndw.retryloop(attempts=10, delay=1, backoff=2):
         conn = open_connection(storage_url)
         try:
             resp, read = request(conn, storage_path, method='GET')
             json_read = json.loads(read)
             if 'ErrorMessage' in json_read:
-                print json_read['ErrorMessage']
+                print(
+                    'ERROR: "%s" Nirvanix Reported an error Retrieving the'
+                    ' Download URL. The system will retry.'
+                    % json_read['ErrorMessage']
+                )
                 retry()
             elif resp.status >= 300:
                 storage_path = download_exp(storage_path, json_read)
@@ -128,7 +132,11 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         else:
             conn, resp = obj_get(dw_url)
             if 'ErrorMessage' in json_read:
-                print json_read['ErrorMessage']
+                print(
+                    'ERROR: "%s" Nirvanix Reported an error with the content'
+                    ' you are attempting to Download. The system will retry.'
+                    % json_read['ErrorMessage']
+                )
                 retry()
             elif resp.status >= 300:
                 print('ERROR in Download Node API request. '
