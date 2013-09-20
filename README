@@ -32,11 +32,11 @@ How to
 
 * Download this repo
 * You MUST have Python 2.6, or 2.7 installed
-* Make the script executable ``chmod +x nirvanix-downloader.py``
-* Install the application and or run it via the ``bin`` directory.
+* Install the application with the setup file that was included and or use the local script found in the bin directory.
 
 Note: You will need to have your **Nirvanix Application Key**, **Username**, and **Password** Handy as the script requires them as arguments.
 Note: If you are wanting to migrate your content from Nirvanix to Rackspace Cloud Files you will need to have a cloud account setup and your **username**, **apikey** and **region** on hand.
+
 
 Example of Simple Download Command :
 
