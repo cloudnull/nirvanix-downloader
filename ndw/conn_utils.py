@@ -8,9 +8,10 @@
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
 import httplib
-import tempfile
-import os
 import json
+import os
+import tempfile
+import time
 import traceback
 import urllib
 import urlparse
@@ -154,9 +155,16 @@ def gotorax(sessionToken, args, obj, payload):
     tempf = tempfile.mktemp()
     try:
         # make a temp download file.
-        downloader(
-            sessionToken=sessionToken, args=args, obj=obj, tempf=tempf
-        )
+        for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+            downloader(
+                sessionToken=sessionToken, args=args, obj=obj, tempf=tempf
+            )
+            if not os.path.exists(tempf):
+                retry()
+            else:
+                time.sleep(1)
+
+        # Upload file to RAX
         for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
             conn = open_connection(url=payload['url'])
             rpath = '%s/%s/%s' % (

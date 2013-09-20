@@ -7,12 +7,10 @@
 # details (see GNU General Public License).
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
-"""Utilities For Authenticating against All Openstack / Rax Clouds."""
-
 import httplib
+import json
 import traceback
 import urlparse
-import json
 
 from ndw import conn_utils
 

@@ -8,13 +8,19 @@
 # details (see GNU General Public License).
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
-import multiprocessing
-import json
 import errno
+import json
+import multiprocessing
 import os
 
-from ndw import conn_utils
 import ndw
+from ndw import conn_utils
+
+
+# Globals
+SessToken = None
+FolderUrl = None
+FileList = None
 
 
 def mkdir_p(path):
@@ -110,4 +116,3 @@ def file_finder(sessionToken, folder_url, args):
          if path.get('Path') is not None]
     )
     return FileList
-

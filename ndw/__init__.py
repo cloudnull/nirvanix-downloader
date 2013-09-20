@@ -7,8 +7,8 @@
 # details (see GNU General Public License).
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
-import time
 import multiprocessing
+import time
 
 
 def prep_payload(auth, args):

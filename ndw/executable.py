@@ -8,17 +8,17 @@
 # details (see GNU General Public License).
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
-import multiprocessing
-import sys
 import json
+import multiprocessing
 import os
+import sys
 import urlparse
 
+import ndw
 from ndw import actions
 from ndw import arguments
 from ndw import conn_utils
 from ndw import rax_auth_utils
-import ndw
 
 
 def run():
@@ -67,6 +67,7 @@ def run():
         )
 
     # Make the local Directories
+    print('Job Starting...')
     if args.get('download') is True:
         payload = None
         # Fetch the local Directories

@@ -19,13 +19,13 @@ def args():
     par = argparse.ArgumentParser(
         usage='%(prog)s',
         description=(
-            '%(prog)s will Download Files from Nirvanix Folders. This application'
-            ' will search all folders that it can find at increments of 500 per'
-            ' page. then it will download the found "files" and store them in your'
-            ' working directory while maintaining your Nirvanix directory'
-            ' structure.'
+            '%(prog)s will Download Files from Nirvanix Folders. This'
+            ' application will search all folders that it can find at'
+            ' increments of 500 per page. then it will download the found'
+            ' "files" and store them in your working directory while'
+            ' maintaining your Nirvanix directory structure.'
         ),
-        epilog='Apache2 Licensed Nirvanix Downloader.'
+        epilog='GPLv3 Licensed Nirvanix Downloader Tool.'
     )
 
     par.add_argument('-u',
