@@ -51,6 +51,7 @@ def run():
 
     # Get Session
     sessionToken = get_sesstoken(auth_url, auth_path)
+    print sessionToken
 
     # Set folder path
     folder_url = urlparse.urlsplit('%s/ws/IMFS/ListFolder.ashx' % base_url)
@@ -91,7 +92,7 @@ def run():
         job_action=action,
         files=set(files),
         args=args,
-        sessionToken=get_sesstoken(auth_url, auth_path),
+        sessionToken=sessionToken,
         payload=payload
     )
 

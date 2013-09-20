@@ -12,6 +12,7 @@ import json
 import os
 import tempfile
 import time
+import textwrap
 import traceback
 import urllib
 import urlparse
@@ -78,13 +79,48 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
                     break
         return True
 
-    def download_exp(storage_path, json_read):
-        node = json_read.get('Download')[0].get('DownloadHost').split('.')[0]
-        storage_path = '%s%s' % (
-            storage_path, '&excludedNode=%s' % node
+    def download_exp(storage_path, json_read, retry):
+        if json_read is not None:
+            nd = json_read.get('Download')[0].get('DownloadHost').split('.')[0]
+            exclude = '&excludedNode=%s' % nd
+            storage_path = '%s%s' % (
+                storage_path, exclude
+            )
+            return storage_path
+        else:
+            retry()
+
+    def check_srv():
+        services_check = urlparse.urlsplit(
+            'http://services.nirvanix.com/ws/Version.ashx'
         )
-        print storage_path
-        return storage_path
+        conn = open_connection(services_check)
+        resp, read = request(conn, services_check.path, method='GET')
+        if resp.status != 200:
+            time.sleep(30)
+
+    def error_msg(json_read, url_data):
+        msg = textwrap.fill(
+            'ERROR: "%s" Nirvanix Reported an error with the content'
+            ' you are attempting to Download. The system will retry.'
+            % json_read['ErrorMessage'],
+            60
+        )
+        print('\n%s\n' % msg)
+        if int(json_read['ResponseCode']) == 70205:
+            msg = textwrap.fill(
+                'The response Code from Nirvanix about the URL,'
+                ' "%s" indicates that the resource is not To be'
+                ' found. While This is likey an issue with the'
+                ' storage provider, The system will retry a few'
+                ' more times, however success is not expected.'
+                % url_data,
+                60
+            )
+            print('\n%s\n' % msg)
+            time.sleep(30)
+        else:
+            check_srv()
 
     if tempf is None:
         tempf = obj
@@ -103,51 +139,35 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         % (sessionToken, file_path)
     )
     storage_path = '%s%s' % (storage_url.path, storage_query)
-    for retry in ndw.retryloop(attempts=10, delay=1, backoff=2):
+    for retry in ndw.retryloop(attempts=10, delay=5, backoff=1):
         conn = open_connection(storage_url)
-        try:
-            resp, read = request(conn, storage_path, method='GET')
-            json_read = json.loads(read)
-            if 'ErrorMessage' in json_read:
-                print(
-                    'ERROR: "%s" Nirvanix Reported an error Retrieving the'
-                    ' Download URL. The system will retry.'
-                    % json_read['ErrorMessage']
-                )
-                retry()
-            elif resp.status >= 300:
-                storage_path = download_exp(storage_path, json_read)
-                retry()
-            else:
-                dw_url = urlparse.urlsplit(
-                    json_read.get('Download')[0].get('DownloadURL')
-                )
-        except Exception as exp:
-            print(
-                'FAILURE Accessing the Nirvanix API\nERROR: %s,\n'
-                'System will retry' % exp
-            )
-            storage_path = download_exp(storage_path, json_read)
+        resp, read = request(conn, storage_path, method='GET')
+        json_read = json.loads(read)
+        if 'ErrorMessage' in json_read:
+            error_msg(json_read, storage_path)
+            retry()
+        elif resp.status >= 300:
+            print('ERROR in Download Node API request. '
+                  'ERROR: %s. System will retry'
+                  % resp.status)
+            storage_path = download_exp(storage_path, json_read, retry)
             retry()
         else:
+            dw_url = urlparse.urlsplit(
+                json_read.get('Download')[0].get('DownloadURL')
+            )
             conn, resp = obj_get(dw_url)
-            if 'ErrorMessage' in json_read:
-                print(
-                    'ERROR: "%s" Nirvanix Reported an error with the content'
-                    ' you are attempting to Download. The system will retry.'
-                    % json_read['ErrorMessage']
-                )
-                retry()
-            elif resp.status >= 300:
+            if resp.status >= 300:
+                conn.close()
                 print('ERROR in Download Node API request. '
-                      'ERROR: %s\n%s\nREQ: %s\nSystem will retry'
-                      % (resp.status, resp.msg, dw_url))
-                storage_path = download_exp(storage_path, json_read)
+                      'ERROR: %s. System will retry'
+                      % resp.status)
+                storage_path = download_exp(storage_path, json_read, retry)
                 retry()
             else:
-                return file_write(local_path, resp)
-        finally:
-            conn.close()
+                file_w = file_write(local_path, resp)
+                conn.close()
+                return file_w
 
 
 # RAX Container Create
