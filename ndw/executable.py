@@ -51,7 +51,7 @@ def run():
 
     # Get Session
     sessionToken = get_sesstoken(auth_url, auth_path)
-    print sessionToken
+    print('This is your Nirvanix Session Token:\t%s' % sessionToken)
 
     # Set folder path
     folder_url = urlparse.urlsplit('%s/ws/IMFS/ListFolder.ashx' % base_url)
@@ -68,8 +68,8 @@ def run():
 
     # Make the local Directories
     print('Job Starting...')
+    payload = None
     if args.get('download') is True:
-        payload = None
         # Fetch the local Directories
         unique_dirs = list(
             set(unique_dirs)
@@ -87,6 +87,9 @@ def run():
         # Create Container
         conn_utils.container_create(payload)
         action = getattr(conn_utils, 'rax_stream')
+    elif args.get('delete') is not None:
+        action = getattr(conn_utils, 'nirvanix_delete')
+        files = unique_dirs
 
     ndw.threader(
         job_action=action,

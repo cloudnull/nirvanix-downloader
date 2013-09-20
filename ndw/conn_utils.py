@@ -261,3 +261,37 @@ def rax_stream(sessionToken, args, queue, payload):
             break
         else:
             gotorax(sessionToken, args, obj, payload)
+
+
+def nirvanix_delete(sessionToken, args, queue):
+    while True:
+        try:
+            obj = queue.get(timeout=5)
+        except Exception:
+            break
+        else:
+            delete_url = urlparse.urlsplit(
+                '%s/ws/IMFS/DeleteFolders.ashx' % args['node_url']
+            )
+            delete_query = (
+                '?sessionToken=%s&folderPath=%s&output=json'
+                % (sessionToken, obj)
+            )
+            delete_path = '%s%s' % (delete_url.path, delete_query)
+            for retry in ndw.retryloop(attempts=10, delay=5, backoff=1):
+                conn = open_connection(delete_url)
+                resp, read = request(conn, delete_path, method='GET')
+                try:
+                    json_resp = json.loads(read)
+                    if json_resp.get('ResponseCode'):
+                        if json_resp['ResponseCode'] == 0:
+                            print('Folder DELETED:\t%s %s'
+                                  % resp.status, resp.reason)
+                        if json_resp['ResponseCode'] == 70005:
+                            print('Folder %s no longer exists' % obj)
+                    else:
+                        print('Nothing was read in')
+                except Exception as exp:
+                    print('Nothing to decode and or understand ERROR : %s'
+                          % exp)
+

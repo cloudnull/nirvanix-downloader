@@ -69,6 +69,10 @@ def args():
     download = subparser.add_parser('download',
                                     help='Download Files Locally')
     download.set_defaults(download=True)
+    delete = subparser.add_parser('delete',
+                                    help=('Delete all of your remote files in'
+                                          ' a Nirvanix Folder.'))
+    delete.set_defaults(delete=True)
 
     turbgroup = subparser.add_parser(
         'to-rax',
