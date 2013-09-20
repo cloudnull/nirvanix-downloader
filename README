@@ -12,11 +12,8 @@ General Overview
 
 This is a VERY Simple tool that will download files from your Nirvanix Account to your local System.
 
-The tool was created in haste as Nirvanix seems to no longer want to do business. As such this tool has been created to allow you, the end user to download your data onto some local system.
-
-Additionally I am going to build this tool such that it will allow you to upload all your objects from Nrivanix to Rackspace Cloud Files.
-
-Stay tuned, check back regularly for updates.
+This tool was made so that you have an option to rapidy retrieve files from your Nirvanix account.
+The tool also has the ability to stream files from your Nirvanix Account to a Rackspace Cloud Files Container.
 
 
 Overview
@@ -27,7 +24,7 @@ Overview
 3. Builds a list of all files in all Containers with a max page view of 500
 4. As the tool Cycles through the list of Folders it builds a longer list of all files.
 5. Once the list of files is complete, The tool Builds the needed local directory structure.
-6. Using the power of multi-processing the tool beings to download objects.
+6. Using the power of multi-processing the tool beings to download objects/stream them.
 
 
 How to
@@ -36,10 +33,27 @@ How to
 * Download this repo
 * You MUST have Python 2.6, or 2.7 installed
 * Make the script executable ``chmod +x nirvanix-downloader.py``
-* Run Script.
+* Install the application and or run it via the ``bin`` directory.
 
 Note: You will need to have your **Nirvanix Application Key**, **Username**, and **Password** Handy as the script requires them as arguments.
+Note: If you are wanting to migrate your content from Nirvanix to Rackspace Cloud Files you will need to have a cloud account setup and your **username**, **apikey** and **region** on hand.
 
+Example of Simple Download Command :
+
+.. code-block:: shell
+
+    ntorax --remote-path <nirvanix-remote-path> --appkey <your-appkey> --username <your-username> --password <your-password> --work-dir <place-to-save-files> download
+
+
+
+Example of Stream to Rackspace Command :
+
+.. code-block:: shell
+
+    ntorax --remote-path <nirvanix-remote-path> --appkey <your-appkey> --username <your-username> --password <your-password> --work-dir <place-to-save-files> to-rax --os-user <rax-username> --os-apikey <rax-api-key> --os-rax-auth <rax-region> --container <container-to-save-files>
+
+
+Please see ``ntorax --help`` for more information on all of the available options and arguments.
 
 License
 ^^^^^^^
