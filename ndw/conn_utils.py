@@ -39,27 +39,53 @@ def open_connection(url):
         return conn
 
 
-def request(conn, rpath, method='GET', body=None, headers=None):
+def request(conn, rpath, method='GET', body=None, headers=None, only=False):
     """Open a Connection."""
-    try:
-        if headers is None:
-            headers = {}
-        # conn.set_debuglevel(1)
-        if body is not None:
-            conn.request(method, rpath, body=body, headers=headers)
-        else:
-            conn.request(method, rpath, headers=headers)
-    except Exception:
-        raise SystemExit('Connection issues, %s ' % traceback.format_exc())
+    if headers is None:
+        headers = {}
+
+    if only is True:
+        conn.request(method, rpath, body=body, headers=headers)
     else:
-        resp = conn.getresponse()
-        return resp, resp.read()
-    finally:
-        conn.close()
+        try:
+            # conn.set_debuglevel(1)
+            conn.request(method, rpath, body=body, headers=headers)
+        except Exception:
+            raise SystemExit('Connection issues, %s ' % traceback.format_exc())
+        else:
+            resp = conn.getresponse()
+            return resp, resp.read()
+        finally:
+            conn.close()
 
 
 # Download Files
 def downloader(sessionToken=None, args=None, obj=None, tempf=None):
+
+    def obj_get(dw_url):
+        conn = open_connection(dw_url)
+        request(conn, dw_url.path, method='GET', only=True)
+        resp = conn.getresponse()
+        return conn, resp
+
+    def file_write(local_path, resp):
+        with open(local_path, 'wb') as f:
+            while True:
+                chunk = resp.read(2048)
+                if chunk:
+                    f.write(chunk)
+                else:
+                    break
+        return True
+
+    def download_exp(storage_path, json_read):
+        node = json_read.get('Download')[0].get('DownloadHost').split('.')[0]
+        storage_path = '%s%s' % (
+            storage_path, '&excludedNode=%s' % node
+        )
+        print storage_path
+        return storage_path
+
     if tempf is None:
         tempf = obj
         local_path = '%s%s%s' % (
@@ -82,53 +108,38 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         try:
             resp, read = request(conn, storage_path, method='GET')
             json_read = json.loads(read)
-            dw_url = urlparse.urlsplit(
-                json_read.get('Download')[0].get('DownloadURL')
-            )
-            if resp.status >= 300:
+            if 'ErrorMessage' in json_read:
+                print json_read['ErrorMessage']
                 retry()
+            elif resp.status >= 300:
+                storage_path = download_exp(storage_path, json_read)
+                retry()
+            else:
+                dw_url = urlparse.urlsplit(
+                    json_read.get('Download')[0].get('DownloadURL')
+                )
         except Exception as exp:
             print(
                 'FAILURE Accessing the Nirvanix API\nERROR: %s,\n'
                 'System will retry' % exp
             )
+            storage_path = download_exp(storage_path, json_read)
             retry()
         else:
-            time.sleep(.5)
-            for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-                conn = open_connection(dw_url)
-                resp, read = request(conn, dw_url.path, method='GET')
-                try:
-                    if resp.status >= 300:
-                        fpath = json_read.get('Download')[0].get('FilePath')
-                        dw_url = urlparse.urlsplit(
-                            urlparse.urljoin(
-                                args['node_url'], fpath
-                            )
-                        )
-                        conn = open_connection(dw_url)
-                        resp, read = request(conn, storage_path, method='GET')
-                        if resp.status >= 300:
-                            print(
-                                'ERROR in Download Node API request. '
-                                'ERROR: %s\n%s\nREQ: %s\nSystem will retry'
-                                % (resp.status, resp.msg, dw_url)
-                            )
-                            retry()
-                        else:
-                            with open(local_path, 'wb') as f:
-                                f.write(read)
-                            return True
-                    else:
-                        with open(local_path, 'wb') as f:
-                            f.write(read)
-                        return True
-                except Exception as exp:
-                    print(
-                        'FAILURE in Downloading from Nirvanix\nERROR: %s,\n'
-                        'System will retry' % exp
-                    )
-                    retry()
+            conn, resp = obj_get(dw_url)
+            if 'ErrorMessage' in json_read:
+                print json_read['ErrorMessage']
+                retry()
+            elif resp.status >= 300:
+                print('ERROR in Download Node API request. '
+                      'ERROR: %s\n%s\nREQ: %s\nSystem will retry'
+                      % (resp.status, resp.msg, dw_url))
+                storage_path = download_exp(storage_path, json_read)
+                retry()
+            else:
+                return file_write(local_path, resp)
+        finally:
+            conn.close()
 
 
 # RAX Container Create
@@ -167,10 +178,10 @@ def container_create(payload):
 
 # Download Files
 def gotorax(sessionToken, args, obj, payload):
+    # make a temp download file.
+    tempf = tempfile.mktemp()
     try:
-        # make a temp download file.
         for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-            tempf = tempfile.mktemp()
             downloaded = downloader(sessionToken, args, obj, tempf)
             if downloaded is True and os.path.exists(tempf):
                 # Upload file to RAX
