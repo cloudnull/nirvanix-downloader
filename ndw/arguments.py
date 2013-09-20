@@ -74,6 +74,10 @@ def args():
                                           ' a Nirvanix Folder.'))
     delete.set_defaults(delete=True)
 
+    lister = subparser.add_parser('list',
+                                  help='List all of your folders')
+    lister.set_defaults(list=True)
+
     turbgroup = subparser.add_parser(
         'to-rax',
         help='Stream Nirvanix files to Rackspace CloudFiles'

@@ -69,6 +69,7 @@ def run():
     # Make the local Directories
     print('Job Starting...')
     payload = None
+    action = None
     if args.get('download') is True:
         # Fetch the local Directories
         unique_dirs = list(
@@ -90,14 +91,18 @@ def run():
     elif args.get('delete') is not None:
         action = getattr(conn_utils, 'nirvanix_delete')
         files = unique_dirs
+    elif args.get('list') is not None:
+        for u_dir in unique_dirs:
+            print(u_dir)
 
-    ndw.threader(
-        job_action=action,
-        files=set(files),
-        args=args,
-        sessionToken=sessionToken,
-        payload=payload
-    )
+    if action is not None:
+        ndw.threader(
+            job_action=action,
+            files=set(files),
+            args=args,
+            sessionToken=sessionToken,
+            payload=payload
+        )
 
     print('Job is complete.')
 
