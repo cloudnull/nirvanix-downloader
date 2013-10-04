@@ -32,8 +32,6 @@ def run():
         # Get Session
         return json_response.get('SessionToken')
 
-    multiprocessing.freeze_support()
-
     if len(sys.argv) <= 1:
         raise SystemExit('Give me something to do and I will do it')
 
@@ -92,6 +90,9 @@ def run():
         action = getattr(conn_utils, 'nirvanix_delete')
         files = unique_dirs
     elif args.get('list') is not None:
+        unique_dirs = list(
+            set(unique_dirs)
+        )
         for u_dir in unique_dirs:
             print(u_dir)
 
@@ -107,5 +108,4 @@ def run():
     print('Job is complete.')
 
 if __name__ == "__main__":
-    multiprocessing.freeze_support()
     run()
