@@ -16,7 +16,7 @@ from ndw import conn_utils
 
 
 __rax_regions__ = ['dfw', 'ord', 'iad', 'lon', 'syd']
-__srv_types__ = ['cloudFilesCDN', 'cloudFiles', 'objectServer']
+__srv_types__ = ['cloudFiles', 'objectServer']
 
 
 def authenticate(args):
@@ -73,7 +73,8 @@ def parse_url(url, auth=False):
         else:
             return 'http://%s' % iurl
 
-    if all([auth is True, 'tokens' not in url]):
+    if auth is True:
+        if 'tokens' not in url:
             url = urlparse.urljoin(url, 'tokens')
 
     if url.startswith(('http', 'https', '//')):
