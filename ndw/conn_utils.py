@@ -99,11 +99,12 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         if resp.status != 200:
             time.sleep(30)
 
-    def error_msg(json_read, url_data):
+    def error_msg(json_read, url_data, ec):
         msg = textwrap.fill(
             'ERROR: "%s" Nirvanix Reported an error with the content'
             ' you are attempting to Download. The system will retry.'
-            % json_read['ErrorMessage'],
+            'Error Count: %s '
+            % (json_read['ErrorMessage'], ec),
             60
         )
         print('\n%s\n' % msg)
@@ -114,7 +115,8 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
                 ' found. While This is likey an issue with the'
                 ' storage provider, The system will retry a few'
                 ' more times, however success is not expected.'
-                % url_data,
+                'Error Count: %s '
+                % (url_data, ec),
                 60
             )
             print('\n%s\n' % msg)
@@ -139,35 +141,48 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         % (sessionToken, file_path)
     )
     storage_path = '%s%s' % (storage_url.path, storage_query)
-    for retry in ndw.retryloop(attempts=10, delay=5, backoff=1):
+    error_count = 0
+    for retry in ndw.retryloop(attempts=5, delay=5, backoff=1):
         conn = open_connection(storage_url)
         resp, read = request(conn, storage_path, method='GET')
         json_read = json.loads(read)
         if 'ErrorMessage' in json_read:
-            error_msg(json_read, storage_path)
+            error_count += 1
+            error_msg(json_read, storage_path, error_count)
             retry()
         elif resp.status >= 300:
-            print('ERROR in Download Node API request. '
-                  'ERROR: %s. System will retry'
-                  % resp.status)
+            error_count += 1
+            print('Failed connecting to download Nirvanix Node. '
+                  'ERROR: %s. System will retry. Error Count %s'
+                  'Error Count: %s '
+                  % (resp.status, error_count, error_count))
             storage_path = download_exp(storage_path, json_read, retry)
             retry()
         else:
-            dw_url = urlparse.urlsplit(
-                json_read.get('Download')[0].get('DownloadURL')
-            )
-            conn, resp = obj_get(dw_url)
-            if resp.status >= 300:
-                conn.close()
-                print('ERROR in Download Node API request. '
-                      'ERROR: %s. System will retry'
-                      % resp.status)
-                storage_path = download_exp(storage_path, json_read, retry)
+            try:
+                dw_url = urlparse.urlsplit(
+                    json_read.get('Download')[0].get('DownloadURL')
+                )
+                conn, resp = obj_get(dw_url)
+                if resp.status >= 300:
+                    conn.close()
+                    error_count += 1
+                    print('Nirvanix ERROR in Download Node API request. '
+                          'ERROR: %s. System will retry. Error Count: %s '
+                          % (resp.status, error_count))
+                    storage_path = download_exp(storage_path, json_read, retry)
+                    retry()
+            except Exception as exc:
+                error_count += 1
+                print('Absolute Failure in Nirvanix Request. %s the system'
+                      ' will retry. ERROR: %s. Error Count: %s'
+                      % (resp.status, exc, error_count))
                 retry()
             else:
                 file_w = file_write(local_path, resp)
-                conn.close()
                 return file_w
+            finally:
+                conn.close()
 
 
 # RAX Container Create
