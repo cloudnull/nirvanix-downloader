@@ -9,7 +9,6 @@
 # http://www.gnu.org/licenses/gpl.html
 # =============================================================================
 import json
-import multiprocessing
 import os
 import sys
 import urlparse
@@ -19,6 +18,7 @@ from ndw import actions
 from ndw import arguments
 from ndw import conn_utils
 from ndw import rax_auth_utils
+from ndw import spinner
 
 
 def run():
@@ -54,18 +54,18 @@ def run():
     # Set folder path
     folder_url = urlparse.urlsplit('%s/ws/IMFS/ListFolder.ashx' % base_url)
 
-    # Get file list ready
-    files = actions.file_finder(sessionToken, folder_url, args)
-
-    # Get all of the unique Directories
-    unique_dirs = []
-    for obj in files:
-        unique_dirs.append(
-            obj.split(os.path.basename(obj))[0].rstrip(os.sep)
-        )
+    with spinner.spinner():
+        # Get file list ready
+        files = actions.file_finder(sessionToken, folder_url, args)
+        # Get all of the unique Directories
+        unique_dirs = []
+        for obj in files:
+            unique_dirs.append(
+                obj.split(os.path.basename(obj))[0].rstrip(os.sep)
+            )
+    print 'Total Number of files found : %s' % len(files)
 
     # Make the local Directories
-    print('Job Starting...')
     payload = None
     action = None
     if args.get('download') is True:
@@ -97,14 +97,15 @@ def run():
             print(u_dir)
 
     if action is not None:
-        ndw.threader(
-            job_action=action,
-            files=set(files),
-            args=args,
-            sessionToken=sessionToken,
-            payload=payload
-        )
-
+        with spinner.spinner():
+            print('Job Starting...')
+            ndw.threader(
+                job_action=action,
+                files=files,
+                args=args,
+                sessionToken=sessionToken,
+                payload=payload
+            )
     print('Job is complete.')
 
 if __name__ == "__main__":

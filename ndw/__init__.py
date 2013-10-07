@@ -9,6 +9,7 @@
 # =============================================================================
 import multiprocessing
 import time
+import random
 
 
 def prep_payload(auth, args):
@@ -103,3 +104,13 @@ def threader(job_action, files, args, sessionToken, payload=None, threads=25):
 
     for job in join_jobs:
         job.join()
+
+
+def stupid_hack(most=5, wait=None):
+    """Return a random time between 1 - 10 Seconds."""
+
+    # Stupid Hack For Public Cloud so it is not overwhelmed with API requests.
+    if wait is not None:
+        time.sleep(wait)
+    else:
+        time.sleep(random.randrange(1, most))
