@@ -91,7 +91,6 @@ def get_file_list(folder_path, page_number=1, total_files=0):
         while True:
             try:
                 page = queue.get(timeout=2)
-                print page
             except Exception:
                 break
             else:
