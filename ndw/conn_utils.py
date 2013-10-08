@@ -155,8 +155,8 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
         elif resp.status >= 300:
             error_count += 1
             LOG.error('Failed connecting to download Nirvanix Node. '
-                      'ERROR: %s. System will retry. Error Count %s'
-                      'Error Count: %s ', resp.status, error_count,
+                      'ERROR: %s. System will retry. Error Message %s'
+                      'Error Count: %s ', resp.status, resp.msg,
                       error_count)
             storage_path = download_exp(storage_path, json_read, retry)
             retry()
