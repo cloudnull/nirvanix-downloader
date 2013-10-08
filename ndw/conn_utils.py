@@ -18,6 +18,7 @@ import urllib
 import urlparse
 
 import ndw
+import ndw.constants as con
 
 from ndw.constants import LOG
 
@@ -231,6 +232,23 @@ def gotorax(sessionToken, args, obj, payload):
         else:
             ndw.md5_checker(rax_response, temp_file)
 
+    def _check_rax_error(rax_resp, sys_payload, sys_args, rax_retry,
+                         other=False):
+        if rax_resp.status == 401:
+            sys_payload['headers']['X-Auth-Token'] = con.rax_reauthenticate(
+                sys_args
+            )
+            LOG.error('ERROR: %s\n%s\nSystem will retry',
+                      rax_resp.status, rax_resp.msg)
+            rax_retry()
+        elif rax_resp.status >= 300 and other is True:
+            LOG.info(
+                'ERROR in object request when RAX Processing.'
+                ' ERROR: %s\n%s\nSystem will retry',
+                rax_resp.status, rax_resp.msg
+            )
+            rax_retry()
+
     # make a temp download file.
     tempf = tempfile.mktemp()
     try:
@@ -238,7 +256,7 @@ def gotorax(sessionToken, args, obj, payload):
             downloaded = downloader(sessionToken, args, obj, tempf)
             if downloaded is True and os.path.exists(tempf):
                 # Upload file to RAX
-                for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+                for _retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
                     rpath = '%s/%s/%s' % (
                         payload['url'].path, payload['c_name'], obj
                     )
@@ -250,6 +268,9 @@ def gotorax(sessionToken, args, obj, payload):
                         method='HEAD',
                         headers=payload['headers']
                     )
+                    _check_rax_error(resp, payload, args, _retry)
+
+                for _retry_ in ndw.retryloop(attempts=10, delay=2):
                     if _check_object(resp, tempf) is True:
                         conn = open_connection(url=payload['url'])
                         with open(tempf, 'rb') as open_file:
@@ -260,22 +281,17 @@ def gotorax(sessionToken, args, obj, payload):
                                 body=open_file,
                                 headers=payload['headers']
                             )
-                        if resp.status == 401:
-                            from ndw.rax_auth_utils import authenticate as auth
-                            payload['headers']['X-Auth-Token'] = auth(args)[0]
-                            LOG.info('ERROR: %s\n%s\nSystem will retry',
-                                     resp.status, resp.msg)
-                            retry()
-                        elif resp.status >= 300:
-                            LOG.info('ERROR in PUT object onto RAX Processing.'
-                                     ' ERROR: %s\n%s\nSystem will retry',
-                                     resp.status, resp.msg)
-                            retry()
+                        _check_rax_error(
+                            resp, payload, args, _retry_, other=True
+                        )
                     else:
                         _remove_file(tempf)
             else:
                 _remove_file(tempf)
                 retry()
+    except Exception as exp:
+        LOG.error('Error Processing Rackspace Method ERROR: %s', exp)
+        retry()
     finally:
         _remove_file(tempf)
 

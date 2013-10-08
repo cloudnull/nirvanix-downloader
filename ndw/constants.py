@@ -14,3 +14,8 @@ def load_constants(logger, log_location):
     global LOG
     LOG = logger.load_in(log_level='info',
                          log_location=log_location)
+
+
+def rax_reauthenticate(args):
+    from ndw import rax_auth_utils as auth
+    return auth.authenticate(args)[0]
