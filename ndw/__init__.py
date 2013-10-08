@@ -10,6 +10,7 @@
 import multiprocessing
 import time
 import random
+import hashlib
 
 
 def prep_payload(auth, args):
@@ -23,6 +24,10 @@ def prep_payload(auth, args):
     # Unpack the values from Authentication
     token, tenant, user, inet, enet = auth
 
+    # Setup a proxy Dictionary
+    manager = multiprocessing.Manager()
+    md = manager.dict()
+
     # Get the headers ready
     headers = {'X-Auth-Token': token}
 
@@ -32,11 +37,12 @@ def prep_payload(auth, args):
         url = enet
 
     # Set the upload Payload
-    return {'c_name': args['container'],
-            'tenant': tenant,
-            'headers': headers,
-            'user': user,
-            'url': url}
+    md['c_name'] = args['container']
+    md['tenant'] = tenant
+    md['headers'] = headers
+    md['user'] = user
+    md['url'] = url
+    return md
 
 
 def retryloop(attempts, timeout=None, delay=None, backoff=1):
@@ -114,3 +120,36 @@ def stupid_hack(most=5, wait=None):
         time.sleep(wait)
     else:
         time.sleep(random.randrange(1, most))
+
+
+def md5_checker(resp, local_f):
+    """Check for different Md5 in CloudFiles vs Local File.
+
+    If the md5 sum is different, return True else False
+
+    :param resp:
+    :param local_f:
+    :return True|False:
+    """
+
+    def calc_hash():
+        """Read the hash.
+
+        :return data_hash.read():
+        """
+
+        return data_hash.read(128 * md5.block_size)
+
+    rmd5sum = resp.getheader('etag')
+    md5 = hashlib.md5()
+
+    with open(local_f, 'rb') as data_hash:
+        for chk in iter(calc_hash, ''):
+            md5.update(chk)
+
+    lmd5sum = md5.hexdigest()
+
+    if rmd5sum != lmd5sum:
+        return True
+    else:
+        return False

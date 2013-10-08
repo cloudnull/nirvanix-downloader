@@ -63,6 +63,8 @@ def run():
             unique_dirs.append(
                 obj.split(os.path.basename(obj))[0].rstrip(os.sep)
             )
+
+    # notify on the number of files
     print 'Total Number of files found : %s' % len(files)
 
     # Make the local Directories

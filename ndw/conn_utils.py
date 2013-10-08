@@ -221,6 +221,17 @@ def container_create(payload):
 
 # Download Files
 def gotorax(sessionToken, args, obj, payload):
+
+    def _remove_file(temp_file):
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+
+    def _check_object(rax_response, temp_file):
+        if rax_response.status == 404:
+            return True
+        else:
+            ndw.md5_checker(rax_response, temp_file)
+
     # make a temp download file.
     tempf = tempfile.mktemp()
     try:
@@ -229,33 +240,45 @@ def gotorax(sessionToken, args, obj, payload):
             if downloaded is True and os.path.exists(tempf):
                 # Upload file to RAX
                 for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-                    conn = open_connection(url=payload['url'])
                     rpath = '%s/%s/%s' % (
                         payload['url'].path, payload['c_name'], obj
                     )
                     rpath = urllib.quote(rpath)
-                    with open(tempf, 'rb') as fopen:
-                        resp, read = request(
-                            conn,
-                            rpath,
-                            method='PUT',
-                            body=fopen,
-                            headers=payload['headers']
-                        )
-                    if resp.status >= 300:
-                        retry()
-                        print(
-                            'ERROR in PUT object onto RAXProcessing.'
-                            ' ERROR: %s\n%s\nSystem will retry'
-                            % (resp.status, resp.msg)
-                        )
+                    conn = open_connection(url=payload['url'])
+                    resp, read = request(
+                        conn,
+                        rpath,
+                        method='HEAD',
+                        headers=payload['headers']
+                    )
+                    if _check_object(resp, tempf) is True:
+                        conn = open_connection(url=payload['url'])
+                        with open(tempf, 'rb') as open_file:
+                            resp, read = request(
+                                conn,
+                                rpath,
+                                method='PUT',
+                                body=open_file,
+                                headers=payload['headers']
+                            )
+                        if resp.status == 401:
+                            from ndw.rax_auth_utils import authenticate as auth
+                            payload['headers']['X-Auth-Token'] = auth(args)[0]
+                            print('ERROR: %s\n%s\nSystem will retry'
+                                  % (resp.status, resp.msg))
+                            retry()
+                        elif resp.status >= 300:
+                            print('ERROR in PUT object onto RAXProcessing.'
+                                  ' ERROR: %s\n%s\nSystem will retry'
+                                  % (resp.status, resp.msg))
+                            retry()
+                    else:
+                        _remove_file(tempf)
             else:
-                if os.path.exists(tempf):
-                    os.remove(tempf)
+                _remove_file(tempf)
                 retry()
     finally:
-        if os.path.exists(tempf):
-            os.remove(tempf)
+        _remove_file(tempf)
 
 
 def local_download(sessionToken, args, queue):
