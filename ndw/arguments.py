@@ -135,5 +135,10 @@ def args():
                            help='Use the service URL for Cloud Files',
                            action='store_true',
                            default=False)
+    turbgroup.add_argument('--file-diff',
+                           help='Perform a File Diff against Rackspace for'
+                                ' files found in Nirvanix.',
+                           action='store_true',
+                           default=False)
     # Parse the Arguments.
     return vars(par.parse_args())

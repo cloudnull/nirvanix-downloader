@@ -61,6 +61,13 @@ def run():
     with spinner.spinner():
         # Get file list ready
         files = actions.file_finder(sessionToken, folder_url, args)
+        if args['file_diff'] is True:
+            print('Performing the List.')
+            payload = ndw.prep_payload(
+                rax_auth_utils.authenticate(args), args
+            )
+            files = actions.diff_finder(args, files, payload)
+
         # Get all of the unique Directories
         unique_dirs = []
         for obj in files:
@@ -114,5 +121,6 @@ def run():
                 sessionToken=sessionToken,
                 payload=payload
             )
-    LOG.info('============== Job Complete ==============')
-    print('Job is complete.')
+    msg = '============== Job Complete =============='
+    LOG.info(msg)
+    print(msg)

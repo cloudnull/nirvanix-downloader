@@ -87,7 +87,7 @@ def folder_query_quote(SessToken, path, page):
     return folder_query
 
 
-def get_file_list(folder_path, page_number=1, total_files=0):
+def get_file_list(folder_path, page_number=1, total_files=0, diff=False):
 
     def _recurse_list(queue):
         while True:
@@ -108,7 +108,10 @@ def get_file_list(folder_path, page_number=1, total_files=0):
                 _json_response = json.loads(_read)
                 _list_folders = _json_response.get('ListFolder')
                 _files = _list_folders.get('File')
-                file_lister(_files, FileList)
+                if diff is True:
+                    file_diff_lister(_files, FileList)
+                else:
+                    file_lister(_files, FileList)
 
     folder_query = folder_query_quote(SessToken, folder_path, page_number)
     _folder_path = '%s%s' % (FolderUrl.path, folder_query)
@@ -127,7 +130,10 @@ def get_file_list(folder_path, page_number=1, total_files=0):
     pages = int(math.ceil(float(total_files) / float(500)))
     if pages <= 1:
         files = list_folders.get('File')
-        file_lister(files, FileList)
+        if diff is True:
+            file_diff_lister(files, FileList)
+        else:
+            file_lister(files, FileList)
     else:
         ndw.threader(
             job_action=_recurse_list,
@@ -144,12 +150,12 @@ def file_lister(_files, files_list):
     def _lister(queue):
         while True:
             try:
-                file = queue.get(timeout=2)
+                nirv_file = queue.get(timeout=2)
             except Exception:
                 break
             else:
-                if file.get('Path'):
-                    files_list.append(file.get('Path'))
+                if nirv_file.get('Path'):
+                    files_list.append(nirv_file.get('Path'))
 
     if _files:
         ndw.threader(
@@ -187,6 +193,63 @@ def file_getter(folder_list):
         )
 
 
+def file_diff_lister(_files, files_list):
+
+    def _lister(queue):
+        while True:
+            try:
+                nirv_file = queue.get(timeout=2)
+            except Exception:
+                break
+            else:
+                if nirv_file.get('Path') and nirv_file.get('SizeBytes'):
+                    files_list.append(
+                        {'file': nirv_file.get('Path'),
+                         'size': nirv_file.get('SizeBytes')}
+                    )
+
+    if _files:
+        ndw.threader(
+            job_action=_lister,
+            files=_files,
+            args=None,
+            sessionToken=None,
+            payload=None,
+            threads=2
+        )
+
+
+def diff_finder(args, files, payload):
+
+    def _differ(queue):
+        while True:
+            try:
+                nirv_file = queue.get(timeout=2)
+            except Exception:
+                break
+            else:
+                obj = conn_utils.diff_check(nirv_file, args, payload)
+                if obj:
+                    different_files.append(obj)
+
+    manager = multiprocessing.Manager()
+    different_files = manager.list()
+    LOG.info('Beginning The Nirvanix vs Rackspace Difference.')
+    if files:
+        ndw.threader(
+            job_action=_differ,
+            files=files,
+            args=None,
+            sessionToken=None,
+            payload=None,
+            threads=50
+        )
+
+        return different_files
+
+
+
+
 def file_finder(sessionToken, folder_url, args):
     global SessToken, FolderUrl, FileList, FolderList
     SessToken = sessionToken
@@ -204,17 +267,29 @@ def file_finder(sessionToken, folder_url, args):
     LOG.info('Found %s Folders in remote path %s',
              len(FolderList), args['remote_path'])
 
-    get_file_list(
-        folder_path=args['remote_path'],
-    )
-
-    for folder in FolderList:
+    if args['file_diff'] is True:
         get_file_list(
-            folder_path=folder.get('Path'),
-            total_files=folder.get('FileCount')
+            folder_path=args['remote_path'],
+            diff=True
         )
+        for folder in FolderList:
+            get_file_list(
+                folder_path=folder.get('Path'),
+                total_files=folder.get('FileCount'),
+                diff=True
+            )
+        return FileList
+    else:
+        get_file_list(
+            folder_path=args['remote_path'],
+        )
+        for folder in FolderList:
+            get_file_list(
+                folder_path=folder.get('Path'),
+                total_files=folder.get('FileCount')
+            )
 
-    LOG.info('Found "%s" files in remote path %s',
-             len(FileList), args['remote_path'])
+        LOG.info('Found "%s" files in remote path %s',
+                 len(FileList), args['remote_path'])
 
-    return set(FileList)
+        return set(FileList)

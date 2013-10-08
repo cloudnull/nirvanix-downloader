@@ -45,22 +45,38 @@ def open_connection(url):
 
 def request(conn, rpath, method='GET', body=None, headers=None, only=False):
     """Open a Connection."""
+
+    def _request_only():
+        for retry in ndw.retryloop(attempts=5, delay=5, backoff=2):
+            try:
+                conn.request(method, rpath, body=body, headers=headers)
+            except Exception:
+                LOG.critical('Connection issues, %s ' % traceback.format_exc())
+                retry()
+
+    def _request_normal():
+        for retry in ndw.retryloop(attempts=5, delay=5, backoff=2):
+            try:
+                # conn.set_debuglevel(1)
+                conn.request(method, rpath, body=body, headers=headers)
+            except Exception:
+                LOG.critical(
+                    'Connection issues, %s ' % traceback.format_exc()
+                )
+                retry()
+            else:
+                resp = conn.getresponse()
+                return resp, resp.read()
+            finally:
+                conn.close()
+
     if headers is None:
         headers = {}
 
     if only is True:
-        conn.request(method, rpath, body=body, headers=headers)
+        _request_only()
     else:
-        try:
-            # conn.set_debuglevel(1)
-            conn.request(method, rpath, body=body, headers=headers)
-        except Exception:
-            raise SystemExit('Connection issues, %s ' % traceback.format_exc())
-        else:
-            resp = conn.getresponse()
-            return resp, resp.read()
-        finally:
-            conn.close()
+        return _request_normal()
 
 
 # Download Files
@@ -219,6 +235,49 @@ def container_create(payload):
             retry()
 
 
+def diff_check(nirvanix_files, args, payload):
+
+    def _check_rax_error(rax_resp, sys_payload, sys_args, rax_retry,
+                         other=False):
+        if rax_resp.status == 401:
+            sys_payload['headers']['X-Auth-Token'] = con.rax_reauthenticate(
+                sys_args
+            )
+            LOG.error('ERROR: %s\n%s\nSystem will retry',
+                      rax_resp.status, rax_resp.msg)
+            rax_retry()
+        elif rax_resp.status >= 300 and other is True:
+            LOG.info(
+                'ERROR in object request when RAX Processing.'
+                ' ERROR: %s\n%s\nSystem will retry',
+                rax_resp.status, rax_resp.msg
+            )
+            rax_retry()
+
+    for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+        try:
+            rpath = '%s/%s/%s' % (
+                payload['url'].path, payload['c_name'], nirvanix_files['file']
+            )
+            rpath = urllib.quote(rpath)
+            conn = open_connection(url=payload['url'])
+            resp, read = request(
+                conn,
+                rpath,
+                method='HEAD',
+                headers=payload['headers']
+            )
+            _check_rax_error(resp, payload, args, retry)
+        except Exception as exp:
+            LOG.error('Error Processing Rackspace Method ERROR: %s', exp)
+            retry()
+        else:
+            rax = int(resp.getheader('content-length'))
+            nir = int(nirvanix_files['size'])
+            if rax != nir:
+                return nirvanix_files['file']
+
+
 # Download Files
 def gotorax(sessionToken, args, obj, payload):
 
@@ -251,16 +310,16 @@ def gotorax(sessionToken, args, obj, payload):
 
     # make a temp download file.
     tempf = tempfile.mktemp()
-    try:
-        for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+    for retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
+        try:
             downloaded = downloader(sessionToken, args, obj, tempf)
             if downloaded is True and os.path.exists(tempf):
                 # Upload file to RAX
+                rpath = '%s/%s/%s' % (
+                    payload['url'].path, payload['c_name'], obj
+                )
+                rpath = urllib.quote(rpath)
                 for _retry in ndw.retryloop(attempts=10, delay=2, backoff=1):
-                    rpath = '%s/%s/%s' % (
-                        payload['url'].path, payload['c_name'], obj
-                    )
-                    rpath = urllib.quote(rpath)
                     conn = open_connection(url=payload['url'])
                     resp, read = request(
                         conn,
@@ -289,11 +348,11 @@ def gotorax(sessionToken, args, obj, payload):
             else:
                 _remove_file(tempf)
                 retry()
-    except Exception as exp:
-        LOG.error('Error Processing Rackspace Method ERROR: %s', exp)
-        retry()
-    finally:
-        _remove_file(tempf)
+        except Exception as exp:
+            LOG.error('Error Processing Rackspace Method ERROR: %s', exp)
+            retry()
+        finally:
+            _remove_file(tempf)
 
 
 def local_download(sessionToken, args, queue):
