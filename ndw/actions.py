@@ -15,7 +15,9 @@ import math
 import os
 
 import ndw
+
 from ndw import conn_utils
+from ndw.constants import LOG
 
 
 # Globals
@@ -193,17 +195,26 @@ def file_finder(sessionToken, folder_url, args):
     FileList = manager.list()
     FolderList = manager.list()
 
+    LOG.info('Begining File Indexing.')
+
     get_folder_list(
         folder=args['remote_path']
     )
 
+    LOG.info('Found %s Folders in remote path %s',
+             len(FolderList), args['remote_path'])
+
     get_file_list(
         folder_path=args['remote_path'],
     )
+
     for folder in FolderList:
         get_file_list(
             folder_path=folder.get('Path'),
             total_files=folder.get('FileCount')
         )
+
+    LOG.info('Found "%s" files in remote path %s',
+             len(FileList), args['remote_path'])
 
     return set(FileList)

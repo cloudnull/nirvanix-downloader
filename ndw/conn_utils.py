@@ -19,6 +19,8 @@ import urlparse
 
 import ndw
 
+from ndw.constants import LOG
+
 
 def open_connection(url):
     """Open an Http Connection and return the connection object.
@@ -107,7 +109,7 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
             % (json_read['ErrorMessage'], ec),
             60
         )
-        print('\n%s\n' % msg)
+        LOG.critical('\n%s\n' % msg)
         if int(json_read['ResponseCode']) == 70205:
             msg = textwrap.fill(
                 'The response Code from Nirvanix about the URL,'
@@ -119,7 +121,7 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
                 % (url_data, ec),
                 60
             )
-            print('\n%s\n' % msg)
+            LOG.critical('\n%s\n' % msg)
             time.sleep(30)
         else:
             check_srv()
@@ -152,10 +154,10 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
             retry()
         elif resp.status >= 300:
             error_count += 1
-            print('Failed connecting to download Nirvanix Node. '
-                  'ERROR: %s. System will retry. Error Count %s'
-                  'Error Count: %s '
-                  % (resp.status, error_count, error_count))
+            LOG.error('Failed connecting to download Nirvanix Node. '
+                      'ERROR: %s. System will retry. Error Count %s'
+                      'Error Count: %s ', resp.status, error_count,
+                      error_count)
             storage_path = download_exp(storage_path, json_read, retry)
             retry()
         else:
@@ -167,16 +169,17 @@ def downloader(sessionToken=None, args=None, obj=None, tempf=None):
                 if resp.status >= 300:
                     conn.close()
                     error_count += 1
-                    print('Nirvanix ERROR in Download Node API request. '
-                          'ERROR: %s. System will retry. Error Count: %s '
-                          % (resp.status, error_count))
+                    LOG.error('Nirvanix ERROR on Download Node API request. '
+                              'ERROR: %s - %s. System will retry. '
+                              'Error Count: %s ', resp.status, resp.msg,
+                              error_count)
                     storage_path = download_exp(storage_path, json_read, retry)
                     retry()
             except Exception as exc:
                 error_count += 1
-                print('Absolute Failure in Nirvanix Request. %s the system'
-                      ' will retry. ERROR: %s. Error Count: %s'
-                      % (resp.status, exc, error_count))
+                LOG.error('Absolute Failure in Nirvanix Request. %s the system'
+                          ' will retry. ERROR: %s. Error Count: %s',
+                          resp.status, exc, error_count)
                 retry()
             else:
                 file_w = file_write(local_path, resp)
@@ -200,22 +203,18 @@ def container_create(payload):
                     conn, rpath, method='PUT', headers=payload['headers']
                 )
                 if resp.status >= 300:
-                    print(
-                        'ERROR in Processing. ERROR: %s\n%s\nSystem will'
-                        ' retry' % (resp.status, resp.msg)
-                    )
+                    LOG.error('ERROR in Processing. ERROR: %s\n%s\nSystem will'
+                              ' retry', resp.status, resp.msg)
                     retry()
             elif resp.status >= 300:
-                print(
-                    'ERROR in Processing. ERROR: %s\n%s\nSystem will'
-                    ' retry' % (resp.status, resp.msg)
-                )
+                LOG.error('ERROR in Processing. ERROR: %s\n%s\nSystem will'
+                          ' retry', resp.status, resp.msg)
                 retry()
             else:
                 return True
         except Exception as exp:
-            print('ERROR in Processing RAX Container create.'
-                  ' ERROR: %s\nSystem will retry' % exp)
+            LOG.error('ERROR in Processing RAX Container create.'
+                      ' ERROR: %s. System will retry', exp)
             retry()
 
 
@@ -264,13 +263,13 @@ def gotorax(sessionToken, args, obj, payload):
                         if resp.status == 401:
                             from ndw.rax_auth_utils import authenticate as auth
                             payload['headers']['X-Auth-Token'] = auth(args)[0]
-                            print('ERROR: %s\n%s\nSystem will retry'
-                                  % (resp.status, resp.msg))
+                            LOG.info('ERROR: %s\n%s\nSystem will retry',
+                                     resp.status, resp.msg)
                             retry()
                         elif resp.status >= 300:
-                            print('ERROR in PUT object onto RAXProcessing.'
-                                  ' ERROR: %s\n%s\nSystem will retry'
-                                  % (resp.status, resp.msg))
+                            LOG.info('ERROR in PUT object onto RAX Processing.'
+                                     ' ERROR: %s\n%s\nSystem will retry',
+                                     resp.status, resp.msg)
                             retry()
                     else:
                         _remove_file(tempf)
@@ -316,20 +315,18 @@ def nirvanix_delete(sessionToken, args, queue):
                 % (sessionToken, obj)
             )
             delete_path = '%s%s' % (delete_url.path, delete_query)
-            for retry in ndw.retryloop(attempts=10, delay=5, backoff=1):
-                conn = open_connection(delete_url)
-                resp, read = request(conn, delete_path, method='GET')
-                try:
-                    json_resp = json.loads(read)
-                    if json_resp.get('ResponseCode'):
-                        if json_resp['ResponseCode'] == 0:
-                            print('Folder DELETED:\t%s %s'
+            conn = open_connection(delete_url)
+            resp, read = request(conn, delete_path, method='GET')
+            try:
+                json_resp = json.loads(read)
+                if json_resp.get('ResponseCode'):
+                    if json_resp['ResponseCode'] == 0:
+                        LOG.error('Folder DELETED:\t%s %s'
                                   % resp.status, resp.reason)
-                        if json_resp['ResponseCode'] == 70005:
-                            print('Folder %s no longer exists' % obj)
-                    else:
-                        print('Nothing was read in')
-                except Exception as exp:
-                    print('Nothing to decode and or understand ERROR : %s'
-                          % exp)
+                    if json_resp['ResponseCode'] == 70005:
+                        LOG.error('Folder %s no longer exists', obj)
+                else:
+                    LOG.error('Nothing was read in')
+            except Exception as exp:
+                LOG.error('Nothing to decode or understand.\nERROR : %s', exp)
 

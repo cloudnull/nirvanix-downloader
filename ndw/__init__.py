@@ -12,6 +12,8 @@ import time
 import random
 import hashlib
 
+from ndw.constants import LOG
+
 
 def prep_payload(auth, args):
     """Create payload dictionary.
@@ -77,7 +79,9 @@ def retryloop(attempts, timeout=None, delay=None, backoff=1):
         if delay:
             time.sleep(delay)
             delay = delay * backoff
-    print('RetryError: FAILED TO PROCESS after "%s" Attempts' % attempts)
+
+    # Log Failure.
+    LOG.critical('RetryError: FAILED TO PROCESS after "%s" Attempts', attempts)
 
 
 def threader(job_action, files, args, sessionToken, payload=None, threads=25):

@@ -14,7 +14,6 @@ import urlparse
 
 from ndw import conn_utils
 
-
 __rax_regions__ = ['dfw', 'ord', 'iad', 'lon', 'syd']
 __srv_types__ = ['cloudFiles', 'objectServer']
 
