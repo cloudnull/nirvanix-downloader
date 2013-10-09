@@ -67,6 +67,8 @@ def run():
                 rax_auth_utils.authenticate(args), args
             )
             files = actions.diff_finder(args, files, payload)
+            sessionToken = get_sesstoken(auth_url, auth_path)
+            print('Here is a new Nirvanix Session Token:\t%s' % sessionToken)
 
         # Get all of the unique Directories
         unique_dirs = []
