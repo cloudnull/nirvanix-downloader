@@ -267,7 +267,7 @@ def file_finder(sessionToken, folder_url, args):
     LOG.info('Found %s Folders in remote path %s',
              len(FolderList), args['remote_path'])
 
-    if args['file_diff'] is True:
+    if args.get('file_diff', False) is True:
         get_file_list(
             folder_path=args['remote_path'],
             diff=True

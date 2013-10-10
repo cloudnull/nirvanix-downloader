@@ -61,7 +61,7 @@ def run():
     with spinner.spinner():
         # Get file list ready
         files = actions.file_finder(sessionToken, folder_url, args)
-        if args['file_diff'] is True:
+        if args.get('file_diff', False) is True:
             print('Performing the List.')
             payload = ndw.prep_payload(
                 rax_auth_utils.authenticate(args), args
